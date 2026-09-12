@@ -86,13 +86,27 @@ Do not call external queue/provider inside database transaction.
 
 ### README Decisions
 
-Explain:
+The implementation makes these choices:
 
-1. why database uniqueness is needed;
-2. how request contents are canonicalized and compared;
-3. what 24-hour expiry means;
-4. why paging job is stored in same transaction;
-5. privacy and size risks of stored responses.
+1. **Database uniqueness:** `idempotency_keys` has a unique constraint on
+	`(tenant_id, operation, key)`. The insert claim therefore serializes
+	sequential and concurrent requests at the database boundary, rather than
+	relying on an application-side check-then-insert race.
+2. **Canonical request binding:** the request body is recursively canonicalized
+	by sorting object keys while preserving array order, then hashed with
+	SHA-256. A retry must have the same hash; a changed body receives a
+	conflict response.
+3. **24-hour expiry:** each claim is valid for 24 hours from creation or
+	reclaim. An expired record can be claimed again, which bounds retention and
+	permits eventual key reuse.
+4. **Atomic paging job:** the incident, its pending durable paging job, and the
+	completed idempotency response are written in the same PostgreSQL
+	transaction. A rollback cannot leave either a user-visible incident or an
+	orphaned delivery task.
+5. **Stored response privacy and size:** the completed JSON response is stored
+	to make lost-response retries deterministic. This response must remain
+	small and contain no secrets or unnecessary personal data; production
+	systems should apply payload limits and an explicit retention policy.
 
 ## Test Coverage
 
