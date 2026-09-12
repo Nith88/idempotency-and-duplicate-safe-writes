@@ -1,4 +1,4 @@
-# Idempotency and Duplicate-Safe Writes
+# Idempotency and Duplicate-Safe Write
 
 Build duplicate-safe `POST /incidents` endpoint that returns one durable result when same logical request arrives more than once.
 
